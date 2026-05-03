@@ -29,11 +29,14 @@
   --transition: 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --transition-fast: 0.15s ease-out;
   --navbar-h: 56px;
+  /* JS tarafından set edilir — iOS Safari için gerçek viewport yüksekliği */
+  --vh: 1vh;
 }
 
 /* ── RESET & BASE ── */
 *, *::before, *::after {
-  margin: 0; padding: 0;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -41,8 +44,9 @@ html {
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: var(--purple) var(--black-card);
-  /* Mobilde yatay taşmayı kapat */
   overflow-x: hidden;
+  /* Taşmayı global olarak engelle */
+  max-width: 100%;
 }
 
 ::-webkit-scrollbar { width: 5px; }
@@ -55,14 +59,13 @@ body {
   font-family: var(--font-body);
   font-size: 16px;
   line-height: 1.6;
-  /* Yatay taşmayı engelle */
   overflow-x: hidden;
-  /* Dikey scroll serbest */
-  overflow-y: auto;
   min-height: 100%;
+  /* Kesin genişlik sınırı */
   width: 100%;
-  /* iOS bounce scroll düzeltmesi */
+  max-width: 100vw;
   -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 /* Noise texture overlay */
@@ -108,8 +111,9 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  /* Taşmayı engelle */
+  /* Navbar'ın kendisi de taşmasın */
   overflow: hidden;
+  width: 100%;
 }
 
 .nav-inner {
@@ -120,7 +124,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   display: flex;
   align-items: center;
   gap: 12px;
-  /* İçeriğin taşmasını engelle */
   overflow: hidden;
 }
 
@@ -157,17 +160,9 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 
 .logo-icon {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--purple-dark), var(--purple));
   border-radius: var(--radius);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 900;
-  color: white;
+  object-fit: cover;
   box-shadow: 0 0 12px var(--purple-glow);
-  letter-spacing: -1px;
   flex-shrink: 0;
 }
 
@@ -325,7 +320,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .drawer-close:hover { background: var(--white-ghost); color: var(--white); }
 
-.drawer-body { padding: 24px 20px; flex: 1; }
+.drawer-body { padding: 24px 20px; flex: 1; overflow-y: auto; }
 .drawer-nav { list-style: none; display: flex; flex-direction: column; gap: 4px; }
 .drawer-nav li a {
   display: flex;
@@ -377,62 +372,66 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 
 /* ════════════════════════════════════════════
-   HERO SLIDER — MOBİL UYUMLU
+   HERO SLIDER
    ════════════════════════════════════════════ */
 
 .hero-slider {
   position: relative;
-  width: 100%;
-  /* CSS custom property ile navbar yüksekliğini çıkar */
-  height: calc(100vh - var(--navbar-h));
-  /* iOS için svh fallback */
+  /* --vh JS ile set edilir, iOS'ta adres çubuğunu hesaba katar */
+  height: calc(var(--vh, 1vh) * 100 - var(--navbar-h));
+  /* Fallback: modern tarayıcılar */
   height: calc(100svh - var(--navbar-h));
-  /* Minimum ve maksimum sınır — taşmayı önler */
-  min-height: 400px;
+  min-height: 420px;
   max-height: 900px;
+  width: 100%;
+  /* Taşmayı kesinlikle engelle */
   overflow: hidden;
   margin-top: var(--navbar-h);
-  /* Slider dışına taşmayı kesinlikle engelle */
-  contain: layout size;
+  /* Position context for absolute children */
+  contain: strict;
+}
+
+/* slides-wrapper — absolute fill */
+#slides-wrapper {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .slide {
   position: absolute;
   inset: 0;
-  opacity: 0;
-  transition: opacity 0.8s ease-in-out;
-  /* Her slide tam kapsın */
   width: 100%;
   height: 100%;
+  opacity: 0;
+  transition: opacity 0.8s ease-in-out;
 }
 .slide.active { opacity: 1; }
 
 .slide-bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
-  background-position: center;
-  /* Mobilde scale animasyonu performans kaybı yaratır, küçük tut */
-  transform: scale(1.03);
-  transition: transform 6s ease-out;
-  /* GPU katmanına al */
-  will-change: transform;
-  /* Taşmayı engelle */
   width: 100%;
   height: 100%;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  transform: scale(1.04);
+  transition: transform 6s ease-out;
+  will-change: transform;
 }
 .slide.active .slide-bg { transform: scale(1); }
 
-/* Mobil uyumlu overlay — dikey gradient */
 .slide-overlay {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(0,0,0,0.15) 0%,
-    rgba(0,0,0,0.35) 40%,
-    rgba(0,0,0,0.92) 85%,
-    rgba(0,0,0,0.98) 100%
+    rgba(0,0,0,0.1) 0%,
+    rgba(0,0,0,0.3) 35%,
+    rgba(0,0,0,0.88) 80%,
+    rgba(0,0,0,0.97) 100%
   );
 }
 
@@ -442,11 +441,9 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   bottom: 0;
   left: 0;
   right: 0;
-  /* Padding: üst normal, alt dots alanı için boşluk */
   padding: 0 24px 80px;
   width: 100%;
-  max-width: 100%;
-  /* İçeriğin taşmasını engelle */
+  /* İçerik taşmasını önle */
   overflow: hidden;
 }
 
@@ -464,7 +461,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   text-transform: uppercase;
   color: var(--purple-light);
   margin-bottom: 12px;
-  /* Inline-flex olduğu için max-width ile sarmasını engelle */
   max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -491,10 +487,12 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   line-height: 1.2;
   color: var(--white);
   margin-bottom: 10px;
-  text-shadow: 0 2px 16px rgba(0,0,0,0.8);
-  /* Taşmayı engelle */
-  max-width: 100%;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.9);
   word-break: break-word;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
 }
 
 .slide-desc {
@@ -503,7 +501,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   line-height: 1.65;
   margin-bottom: 20px;
   max-width: 560px;
-  /* Uzun metinleri kes */
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
@@ -542,7 +539,6 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   transform: translateY(-2px);
 }
 
-/* Slider controls */
 .slider-controls {
   position: absolute;
   bottom: 32px;
@@ -610,14 +606,13 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 }
 .slide-counter span { color: var(--purple); font-size: 18px; }
 
-/* ── COMING SOON SECTION ── */
+/* ── COMING SOON ── */
 .coming-section {
   padding: 80px 0;
   text-align: center;
   position: relative;
   overflow: hidden;
 }
-
 .coming-section::before {
   content: '';
   position: absolute;
@@ -632,24 +627,11 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .mascot-area {
   width: 120px; height: 120px;
   margin: 0 auto 32px;
-  background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(124,58,237,0.1));
-  border: 2px dashed var(--border);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 48px;
+  object-fit: cover;
+  border: 2px dashed var(--border);
   position: relative;
 }
-.mascot-area::after {
-  content: '';
-  position: absolute;
-  inset: -8px;
-  border-radius: 50%;
-  border: 1px solid rgba(168,85,247,0.2);
-  animation: spin-slow 8s linear infinite;
-}
-@keyframes spin-slow { to { transform: rotate(360deg); } }
 
 .coming-title {
   font-family: var(--font-display);
@@ -720,11 +702,10 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   font-size: 14px;
   color: var(--white-muted);
   font-weight: 400;
-  letter-spacing: 0;
 }
 .page-header-count strong { color: var(--purple); }
 
-/* ── NEWS GRID ── */
+/* ── NEWS ── */
 .news-section { padding: 48px 0; }
 
 .news-grid {
@@ -871,7 +852,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   box-shadow: 0 0 12px var(--purple-glow);
 }
 
-/* ── SKELETON LOADING ── */
+/* ── SKELETON ── */
 .skeleton {
   background: linear-gradient(90deg, #0f0f15 0%, #1a1a24 50%, #0f0f15 100%);
   background-size: 200% 100%;
@@ -927,10 +908,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   color: white;
   box-shadow: 0 0 16px var(--purple-glow);
 }
-.page-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
+.page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── MODAL ── */
 .modal-overlay {
@@ -947,10 +925,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   transition: opacity var(--transition);
   backdrop-filter: blur(8px);
 }
-.modal-overlay.open {
-  opacity: 1;
-  pointer-events: all;
-}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
 
 .modal {
   background: linear-gradient(160deg, #0a0014 0%, #050008 100%);
@@ -963,9 +938,7 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
   transition: transform var(--transition);
   box-shadow: 0 0 60px rgba(168,85,247,0.2), 0 40px 80px rgba(0,0,0,0.6);
 }
-.modal-overlay.open .modal {
-  transform: scale(1) translateY(0);
-}
+.modal-overlay.open .modal { transform: scale(1) translateY(0); }
 
 .modal-header {
   padding: 24px 24px 0;
@@ -986,19 +959,12 @@ button { cursor: pointer; border: none; background: none; font-family: inherit; 
 .modal-mascot {
   width: 100px; height: 100px;
   margin: 0 auto 24px;
-  background: linear-gradient(135deg, rgba(168,85,247,0.2), rgba(124,58,237,0.1));
-  border: 2px dashed var(--border-bright);
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 42px;
+  object-fit: cover;
+  border: 2px dashed var(--border-bright);
 }
 
-.modal-body {
-  padding: 0 32px 32px;
-  text-align: center;
-}
+.modal-body { padding: 0 32px 32px; text-align: center; }
 
 .modal-title {
   font-family: var(--font-display);
@@ -1066,11 +1032,7 @@ footer {
   color: var(--white);
 }
 .footer-logo span { color: var(--purple); }
-.footer-text {
-  font-size: 13px;
-  color: var(--white-muted);
-  letter-spacing: 0.5px;
-}
+.footer-text { font-size: 13px; color: var(--white-muted); letter-spacing: 0.5px; }
 
 /* ── DIVIDER ── */
 .purple-line {
@@ -1088,23 +1050,26 @@ footer {
   position: relative;
   width: 100%;
   height: 55vh;
-  min-height: 300px;
+  min-height: 280px;
   max-height: 520px;
+  /* Taşmayı engelle */
   overflow: hidden;
+  margin-top: var(--navbar-h);
 }
 
 .detail-hero-img {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   background-size: cover;
   background-position: center;
   transform: scale(1.03);
   transition: transform 6s ease-out;
-  width: 100%;
-  height: 100%;
 }
 .detail-hero:hover .detail-hero-img { transform: scale(1); }
 
+/* detail-hero-overlay artık detail-hero-img'nin kardeşi — DOĞRU konumda */
 .detail-hero-overlay {
   position: absolute;
   inset: 0;
@@ -1114,6 +1079,7 @@ footer {
     rgba(0,0,0,0.5) 40%,
     rgba(0,0,0,0.92) 100%
   );
+  z-index: 1;
 }
 
 .detail-hero-content {
@@ -1194,7 +1160,6 @@ footer {
   background: rgba(168,85,247,0.1);
 }
 
-/* ── DETAIL LAYOUT ── */
 .detail-layout {
   display: grid;
   grid-template-columns: 1fr 320px;
@@ -1218,18 +1183,15 @@ footer {
   font-weight: 500;
   color: var(--white-dim);
   line-height: 1.7;
-  letter-spacing: 0.3px;
 }
 
 .detail-content {
   font-size: 16px;
   color: var(--white-muted);
   line-height: 1.85;
-  letter-spacing: 0.2px;
 }
 .detail-content p { margin-bottom: 20px; }
 
-/* ── DETAIL NAV ── */
 .detail-nav {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1280,7 +1242,6 @@ footer {
   text-overflow: ellipsis;
 }
 
-/* ── DETAIL SIDEBAR ── */
 .detail-sidebar {
   position: sticky;
   top: calc(var(--navbar-h) + 24px);
@@ -1346,11 +1307,7 @@ footer {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.sidebar-item-date {
-  font-size: 11px;
-  color: var(--white-muted);
-  letter-spacing: 0.5px;
-}
+.sidebar-item-date { font-size: 11px; color: var(--white-muted); }
 
 .btn-all-news {
   display: flex;
@@ -1382,47 +1339,36 @@ footer {
   color: var(--white-muted);
 }
 
-.detail-skeleton-hero {
-  width: 100%;
-  height: 55vh;
-  min-height: 300px;
-  max-height: 520px;
-}
-
 /* ── ANIMATIONS ── */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-in { animation: fadeInUp 0.5s ease-out forwards; }
-.slide.active .slide-badge  { animation: fadeInUp 0.5s 0.15s ease-out both; }
-.slide.active .slide-title  { animation: fadeInUp 0.5s 0.28s ease-out both; }
-.slide.active .slide-desc   { animation: fadeInUp 0.5s 0.40s ease-out both; }
-.slide.active .slide-actions{ animation: fadeInUp 0.5s 0.52s ease-out both; }
+.slide.active .slide-badge   { animation: fadeInUp 0.5s 0.15s ease-out both; }
+.slide.active .slide-title   { animation: fadeInUp 0.5s 0.28s ease-out both; }
+.slide.active .slide-desc    { animation: fadeInUp 0.5s 0.40s ease-out both; }
+.slide.active .slide-actions { animation: fadeInUp 0.5s 0.52s ease-out both; }
 
 
 /* ══════════════════════════════════════════
-   RESPONSIVE — TABLET & MOBİL
+   RESPONSIVE
    ══════════════════════════════════════════ */
 
-/* TABLET */
 @media (max-width: 900px) {
   .detail-layout {
     grid-template-columns: 1fr;
     gap: 24px;
     padding: 24px 0 48px;
   }
-  .detail-sidebar {
-    position: static;
-  }
+  .detail-sidebar { position: static; }
 }
 
-/* MOBİL */
 @media (max-width: 768px) {
-  /* Navbar: sadece hamburger + logo + btn-primary */
-  .nav-search  { display: none; }
-  .nav-link    { display: none; }
-  .btn-ghost   { display: none; }
+  /* Navbar */
+  .nav-search { display: none; }
+  .nav-link   { display: none; }
+  .btn-ghost  { display: none; }
 
   .logo-text {
     display: block !important;
@@ -1430,26 +1376,24 @@ footer {
     letter-spacing: 1.5px;
   }
 
-  /* Hero Slider: viewport - navbar, asla taşmasın */
+  /* Hero */
   .hero-slider {
-    height: calc(100vh - var(--navbar-h));
-    height: calc(100svh - var(--navbar-h));
-    min-height: 360px;
+    height: calc(var(--vh, 1vh) * 100 - var(--navbar-h));
+    min-height: 340px;
     max-height: 700px;
   }
 
-  .slide-content {
-    padding: 0 18px 68px;
-  }
+  .slide-content { padding: 0 18px 68px; }
 
   .slide-title {
-    font-size: clamp(15px, 5vw, 24px);
+    font-size: clamp(15px, 5vw, 22px);
     margin-bottom: 8px;
+    -webkit-line-clamp: 2;
   }
 
   .slide-desc {
     font-size: 13px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     -webkit-line-clamp: 2;
   }
 
@@ -1466,41 +1410,38 @@ footer {
   .dot             { width: 16px; }
   .dot.active      { width: 32px; }
 
-  /* News grid */
+  /* News */
   .news-grid { grid-template-columns: 1fr; gap: 14px; }
   .page-header-inner { flex-direction: column; align-items: flex-start; gap: 8px; }
   .page-header { padding: 36px 0 24px; }
 
   /* Detail */
-  .detail-hero { height: 42vh; min-height: 240px; }
-  .detail-title { font-size: clamp(14px, 4vw, 22px); }
+  .detail-hero { height: 40vh; min-height: 220px; }
+  .detail-title { font-size: clamp(14px, 4vw, 20px); }
   .detail-hero-content { padding-bottom: 20px; }
   .detail-desc { font-size: 14px; }
   .detail-content { font-size: 14px; }
   .detail-nav { grid-template-columns: 1fr; }
 
-  /* Drawer, modal */
+  /* Drawer, Modal */
   .drawer { width: 82%; max-width: 290px; }
   .modal  { max-width: 92vw; }
 }
 
-/* KÜÇÜK MOBİL */
 @media (max-width: 480px) {
   .container { padding: 0 14px; }
 
-  /* Hero: daha kısa yükseklik, kesinlikle sığdır */
   .hero-slider {
-    min-height: 320px;
-    max-height: 600px;
+    min-height: 300px;
+    max-height: 580px;
   }
 
-  .slide-content { padding: 0 14px 60px; }
-
-  /* Küçük ekranda desc ve oklar gizle, sade tut */
+  .slide-content { padding: 0 14px 58px; }
   .slide-desc    { display: none; }
   .slider-arrows { display: none; }
   .slide-counter { display: none; }
   .slider-controls { left: 14px; bottom: 20px; }
+  .slide-title { -webkit-line-clamp: 3; }
 
   .news-section { padding: 22px 0; }
   .page-header-title { font-size: clamp(18px, 6vw, 28px); }
@@ -1510,14 +1451,14 @@ footer {
   .detail-desc-box { padding: 14px; }
 }
 
-/* iOS Safari: Adres çubuğu kaymasına karşı dinamik viewport */
+/* iOS Safari: dinamik viewport (en iyi çözüm) */
 @supports (height: 100dvh) {
   .hero-slider {
     height: calc(100dvh - var(--navbar-h));
   }
 }
 
-/* DOKUNMATIK — hover efektlerini kapat */
+/* Dokunmatik cihaz — hover animasyonları kapat */
 @media (hover: none) {
   .news-card:hover      { transform: none; box-shadow: none; }
   .btn-primary:hover    { transform: none; }
