@@ -17,7 +17,6 @@ async function fetchNews() {
     const res = await fetch('data.json');
     if (!res.ok) throw new Error('Fetch failed');
     const data = await res.json();
-    // En yüksek ID en üste gelecek şekilde sırala
     STATE.news = data.sort((a, b) => b.id - a.id);
     return STATE.news;
   } catch (err) {
@@ -37,12 +36,13 @@ function initSlider(news) {
   const sliderEl = document.getElementById('hero-slider');
   if (!sliderEl) return;
 
-  // En yüksek 3 ID'yi al (zaten sıralı geldi)
   const slides = news.slice(0, 3);
   const slidesWrapper = document.getElementById('slides-wrapper');
   const dotsWrapper = document.getElementById('slider-dots');
+  const totalEl = document.getElementById('slide-total');
 
   if (!slidesWrapper) return;
+  if (totalEl) totalEl.textContent = slides.length;
 
   // Render slides
   slidesWrapper.innerHTML = slides.map((item, i) => `
@@ -81,6 +81,40 @@ function initSlider(news) {
 
   updateSliderCounter(0, slides.length);
   startAutoplay(slides.length);
+
+  // Touch/swipe desteği
+  initSliderTouch(sliderEl);
+}
+
+// ── TOUCH SWIPE ──
+function initSliderTouch(el) {
+  let startX = 0;
+  let startY = 0;
+  let isDragging = false;
+
+  el.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    isDragging = true;
+  }, { passive: true });
+
+  el.addEventListener('touchend', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+
+    // Yatay swipe mı dikey scroll mu anla
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      if (dx < 0) {
+        goToSlide(STATE.currentSlide + 1);
+      } else {
+        goToSlide(STATE.currentSlide - 1);
+      }
+      resetAutoplay();
+    }
+  }, { passive: true });
 }
 
 function goToSlide(index) {
@@ -116,7 +150,6 @@ function resetAutoplay() {
   startAutoplay(slides.length);
 }
 
-// Slider buttons
 function initSliderButtons() {
   const prevBtn = document.getElementById('slider-prev');
   const nextBtn = document.getElementById('slider-next');
@@ -168,7 +201,6 @@ function renderNews(news, page = 1) {
       </div>
     `;
 
-    // Karta tıklanınca detay sayfasına git
     card.addEventListener('click', (e) => {
       if (!e.target.closest('.btn-card')) {
         window.location.href = `haber-detay.html?id=${item.id}`;
@@ -178,7 +210,6 @@ function renderNews(news, page = 1) {
     grid.appendChild(card);
   });
 
-  // Update counter
   const countEl = document.getElementById('news-count');
   if (countEl) {
     countEl.innerHTML = `<strong>${news.length}</strong> haber`;
@@ -293,23 +324,18 @@ async function initDetailPage() {
       return;
     }
 
-    // Update page title
     document.title = `${item.title} — Manga Moe`;
 
-    // Önceki ve sonraki haber
     const sorted = data.sort((a, b) => b.id - a.id);
     const currentIndex = sorted.findIndex(n => n.id === id);
     const prevItem = sorted[currentIndex + 1] || null;
     const nextItem = sorted[currentIndex - 1] || null;
-
-    // İlgili haberler (aynı tarih yakını, farklı ID)
     const related = sorted.filter(n => n.id !== id).slice(0, 3);
 
     detailSection.innerHTML = `
       <div class="detail-hero">
-        <div class="detail-hero-img" style="background-image: url('${item.image}')">
-          <div class="detail-hero-overlay"></div>
-        </div>
+        <div class="detail-hero-img" style="background-image: url('${item.image}')"></div>
+        <div class="detail-hero-overlay"></div>
         <div class="detail-hero-content">
           <div class="container">
             <div class="detail-breadcrumb">
@@ -462,7 +488,7 @@ function initDrawer() {
   });
 }
 
-// ── SEARCH (haberler.html) ──
+// ── SEARCH ──
 function initSearch() {
   const searchInput = document.querySelector('.nav-search input, .page-search input');
   if (!searchInput) return;
@@ -484,14 +510,28 @@ function initSearch() {
   });
 }
 
+// ── VIEWPORT HEIGHT FIX (iOS Safari) ──
+function setVh() {
+  const vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
+}
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', async () => {
+  // iOS Safari viewport yüksekliği düzeltmesi
+  setVh();
+  window.addEventListener('resize', setVh);
+  // Orientation change için ekstra gecikme
+  window.addEventListener('orientationchange', () => {
+    setTimeout(setVh, 300);
+  });
+
   initModal();
   initDrawer();
   initSliderButtons();
 
-  const isNewsPage = !!document.getElementById('news-grid');
-  const isHomePage = !!document.getElementById('hero-slider');
+  const isNewsPage   = !!document.getElementById('news-grid');
+  const isHomePage   = !!document.getElementById('hero-slider');
   const isDetailPage = !!document.getElementById('detail-section');
 
   if (isDetailPage) {
