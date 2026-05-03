@@ -2,16 +2,13 @@
    MANGA MOE — SCRIPT.JS
    ============================================ */
 
-// ── STATE ──
 const STATE = {
   news: [],
-  currentSlide: 0,
-  sliderInterval: null,
   currentPage: 1,
   itemsPerPage: 8,
+  heroCurrent: 0,
 };
 
-// ── FETCH JSON ──
 async function fetchNews() {
   try {
     const res = await fetch('data.json');
@@ -25,160 +22,97 @@ async function fetchNews() {
   }
 }
 
-// ── FORMAT DATE ──
 function formatDate(dateStr) {
   const d = new Date(dateStr);
   return d.toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── HERO SLIDER ──
+/* ── HERO SLIDER — KART TASARIMI ── */
 function initSlider(news) {
-  const sliderEl = document.getElementById('hero-slider');
-  if (!sliderEl) return;
+  const wrapper = document.getElementById('hero-slider-inner');
+  const dotsEl = document.getElementById('hero-dots');
+  if (!wrapper) return;
 
-  const slides = news.slice(0, 3);
-  const slidesWrapper = document.getElementById('slides-wrapper');
-  const dotsWrapper = document.getElementById('slider-dots');
-  const totalEl = document.getElementById('slide-total');
+  const items = news.slice(0, 5);
 
-  if (!slidesWrapper) return;
-  if (totalEl) totalEl.textContent = slides.length;
-
-  // Render slides
-  slidesWrapper.innerHTML = slides.map((item, i) => `
-    <div class="slide ${i === 0 ? 'active' : ''}" data-index="${i}">
-      <div class="slide-bg" style="background-image: url('${item.image}')"></div>
-      <div class="slide-overlay"></div>
-      <div class="slide-content">
-        <div class="slide-badge">Öne Çıkan Haber</div>
-        <h2 class="slide-title">${item.title}</h2>
-        <p class="slide-desc">${item.desc}</p>
-        <div class="slide-actions">
-          <a href="haber-detay.html?id=${item.id}" class="btn-slide-primary">
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-            </svg>
-            Haberi Oku
-          </a>
+  wrapper.innerHTML = items.map((item) => `
+    <a href="haber-detay.html?id=${item.id}" class="hero-card">
+      <div class="hero-card-img" style="background-image:url('${item.image}')"></div>
+      <div class="hero-card-overlay"></div>
+      <div class="hero-card-content">
+        <div class="hero-card-tag">Haberler</div>
+        <h2 class="hero-card-title">${item.title}</h2>
+        <p class="hero-card-desc">${item.desc}</p>
+        <div class="hero-card-btn">
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+          Haberi Oku
         </div>
       </div>
-    </div>
+    </a>
   `).join('');
 
-  // Render dots
-  if (dotsWrapper) {
-    dotsWrapper.innerHTML = slides.map((_, i) => `
-      <div class="dot ${i === 0 ? 'active' : ''}" data-index="${i}"></div>
-    `).join('');
+  /* Dots */
+  if (dotsEl) {
+    dotsEl.innerHTML = items.map((_, i) =>
+      `<div class="hero-dot ${i === 0 ? 'active' : ''}" data-i="${i}"></div>`
+    ).join('');
 
-    dotsWrapper.querySelectorAll('.dot').forEach(dot => {
-      dot.addEventListener('click', () => {
-        goToSlide(parseInt(dot.dataset.index));
-        resetAutoplay();
-      });
+    dotsEl.querySelectorAll('.hero-dot').forEach(d => {
+      d.addEventListener('click', () => scrollToCard(parseInt(d.dataset.i)));
     });
   }
 
-  updateSliderCounter(0, slides.length);
-  startAutoplay(slides.length);
-
-  // Touch/swipe desteği
-  initSliderTouch(sliderEl);
-}
-
-// ── TOUCH SWIPE ──
-function initSliderTouch(el) {
-  let startX = 0;
-  let startY = 0;
-  let isDragging = false;
-
-  el.addEventListener('touchstart', (e) => {
-    startX = e.touches[0].clientX;
-    startY = e.touches[0].clientY;
-    isDragging = true;
+  /* Scroll → dot sync */
+  wrapper.addEventListener('scroll', () => {
+    const cardW = wrapper.querySelector('.hero-card')?.offsetWidth + 14 || 1;
+    const idx = Math.round(wrapper.scrollLeft / cardW);
+    updateDots(idx);
   }, { passive: true });
 
-  el.addEventListener('touchend', (e) => {
-    if (!isDragging) return;
-    isDragging = false;
-
-    const dx = e.changedTouches[0].clientX - startX;
-    const dy = e.changedTouches[0].clientY - startY;
-
-    // Yatay swipe mı dikey scroll mu anla
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
-      if (dx < 0) {
-        goToSlide(STATE.currentSlide + 1);
-      } else {
-        goToSlide(STATE.currentSlide - 1);
-      }
-      resetAutoplay();
-    }
-  }, { passive: true });
-}
-
-function goToSlide(index) {
-  const slides = document.querySelectorAll('.slide');
-  const dots = document.querySelectorAll('.dot');
-  if (!slides.length) return;
-
-  slides[STATE.currentSlide].classList.remove('active');
-  dots[STATE.currentSlide]?.classList.remove('active');
-
-  STATE.currentSlide = (index + slides.length) % slides.length;
-
-  slides[STATE.currentSlide].classList.add('active');
-  dots[STATE.currentSlide]?.classList.add('active');
-  updateSliderCounter(STATE.currentSlide, slides.length);
-}
-
-function updateSliderCounter(current, total) {
-  const el = document.getElementById('slide-current');
-  if (el) el.textContent = current + 1;
-}
-
-function startAutoplay(total) {
-  clearInterval(STATE.sliderInterval);
-  STATE.sliderInterval = setInterval(() => {
-    goToSlide(STATE.currentSlide + 1);
-  }, 4000);
-}
-
-function resetAutoplay() {
-  const slides = document.querySelectorAll('.slide');
-  clearInterval(STATE.sliderInterval);
-  startAutoplay(slides.length);
-}
-
-function initSliderButtons() {
-  const prevBtn = document.getElementById('slider-prev');
-  const nextBtn = document.getElementById('slider-next');
-
-  prevBtn?.addEventListener('click', () => {
-    goToSlide(STATE.currentSlide - 1);
-    resetAutoplay();
+  /* Drag-to-scroll (masaüstü) */
+  let isDown = false, startX, scrollL;
+  wrapper.addEventListener('mousedown', e => {
+    isDown = true; wrapper.classList.add('grabbing');
+    startX = e.pageX - wrapper.offsetLeft; scrollL = wrapper.scrollLeft;
   });
-  nextBtn?.addEventListener('click', () => {
-    goToSlide(STATE.currentSlide + 1);
-    resetAutoplay();
+  wrapper.addEventListener('mouseleave', () => { isDown = false; wrapper.classList.remove('grabbing'); });
+  wrapper.addEventListener('mouseup', () => { isDown = false; wrapper.classList.remove('grabbing'); });
+  wrapper.addEventListener('mousemove', e => {
+    if (!isDown) return; e.preventDefault();
+    const x = e.pageX - wrapper.offsetLeft;
+    wrapper.scrollLeft = scrollL - (x - startX) * 1.5;
   });
 }
 
-// ── NEWS RENDER (haberler.html) ──
+function scrollToCard(i) {
+  const wrapper = document.getElementById('hero-slider-inner');
+  if (!wrapper) return;
+  const card = wrapper.querySelectorAll('.hero-card')[i];
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  updateDots(i);
+}
+
+function updateDots(i) {
+  document.querySelectorAll('.hero-dot').forEach((d, idx) => {
+    d.classList.toggle('active', idx === i);
+  });
+}
+
+/* ── HABERLER SAYFASI ── */
 function renderNews(news, page = 1) {
   const grid = document.getElementById('news-grid');
   if (!grid) return;
 
   const start = (page - 1) * STATE.itemsPerPage;
-  const end = start + STATE.itemsPerPage;
-  const pageItems = news.slice(start, end);
+  const pageItems = news.slice(start, start + STATE.itemsPerPage);
 
   grid.innerHTML = '';
-
   pageItems.forEach((item, i) => {
     const card = document.createElement('article');
     card.className = 'news-card animate-in';
-    card.style.animationDelay = `${i * 0.07}s`;
+    card.style.animationDelay = `${i * 0.06}s`;
     card.style.opacity = '0';
     card.innerHTML = `
       <div class="card-image">
@@ -200,91 +134,57 @@ function renderNews(news, page = 1) {
         </div>
       </div>
     `;
-
     card.addEventListener('click', (e) => {
-      if (!e.target.closest('.btn-card')) {
-        window.location.href = `haber-detay.html?id=${item.id}`;
-      }
+      if (!e.target.closest('.btn-card')) window.location.href = `haber-detay.html?id=${item.id}`;
     });
-
     grid.appendChild(card);
   });
 
   const countEl = document.getElementById('news-count');
-  if (countEl) {
-    countEl.innerHTML = `<strong>${news.length}</strong> haber`;
-  }
+  if (countEl) countEl.innerHTML = `<strong>${news.length}</strong> haber`;
 
   renderPagination(news.length, page);
 }
 
-// ── PAGINATION ──
-function renderPagination(totalItems, currentPage) {
+function renderPagination(total, current) {
   const wrapper = document.getElementById('pagination');
   if (!wrapper) return;
+  const pages = Math.ceil(total / STATE.itemsPerPage);
+  if (pages <= 1) { wrapper.innerHTML = ''; return; }
 
-  const totalPages = Math.ceil(totalItems / STATE.itemsPerPage);
-  if (totalPages <= 1) { wrapper.innerHTML = ''; return; }
+  let html = `<button class="page-btn" id="prev-page" ${current===1?'disabled':''}>
+    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+  </button>`;
 
-  let html = '';
-
-  html += `
-    <button class="page-btn" id="prev-page" ${currentPage === 1 ? 'disabled' : ''}>
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-      </svg>
-    </button>
-  `;
-
-  for (let i = 1; i <= totalPages; i++) {
-    if (
-      i === 1 || i === totalPages ||
-      (i >= currentPage - 1 && i <= currentPage + 1)
-    ) {
-      html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
-    } else if (i === currentPage - 2 || i === currentPage + 2) {
-      html += `<span style="color: var(--white-muted); padding: 0 4px; line-height: 40px;">···</span>`;
+  for (let i = 1; i <= pages; i++) {
+    if (i===1 || i===pages || (i>=current-1 && i<=current+1)) {
+      html += `<button class="page-btn ${i===current?'active':''}" data-page="${i}">${i}</button>`;
+    } else if (i===current-2 || i===current+2) {
+      html += `<span style="color:var(--white-muted);padding:0 4px;line-height:40px">···</span>`;
     }
   }
 
-  html += `
-    <button class="page-btn" id="next-page" ${currentPage === totalPages ? 'disabled' : ''}>
-      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-      </svg>
-    </button>
-  `;
+  html += `<button class="page-btn" id="next-page" ${current===pages?'disabled':''}>
+    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+  </button>`;
 
   wrapper.innerHTML = html;
 
   wrapper.querySelectorAll('.page-btn[data-page]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const page = parseInt(btn.dataset.page);
-      STATE.currentPage = page;
-      renderNews(STATE.news, page);
+      STATE.currentPage = parseInt(btn.dataset.page);
+      renderNews(STATE.news, STATE.currentPage);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   });
-
   document.getElementById('prev-page')?.addEventListener('click', () => {
-    if (STATE.currentPage > 1) {
-      STATE.currentPage--;
-      renderNews(STATE.news, STATE.currentPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (STATE.currentPage > 1) { STATE.currentPage--; renderNews(STATE.news, STATE.currentPage); window.scrollTo({top:0,behavior:'smooth'}); }
   });
-
   document.getElementById('next-page')?.addEventListener('click', () => {
-    const totalPages = Math.ceil(STATE.news.length / STATE.itemsPerPage);
-    if (STATE.currentPage < totalPages) {
-      STATE.currentPage++;
-      renderNews(STATE.news, STATE.currentPage);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if (STATE.currentPage < pages) { STATE.currentPage++; renderNews(STATE.news, STATE.currentPage); window.scrollTo({top:0,behavior:'smooth'}); }
   });
 }
 
-// ── SKELETON LOADING ──
 function showSkeleton() {
   const grid = document.getElementById('news-grid');
   if (!grid) return;
@@ -295,46 +195,32 @@ function showSkeleton() {
         <div class="skeleton skeleton-title"></div>
         <div class="skeleton skeleton-line"></div>
         <div class="skeleton skeleton-line"></div>
-        <div class="skeleton skeleton-line"></div>
       </div>
     </div>
   `).join('');
 }
 
-// ── DETAIL PAGE ──
+/* ── DETAY SAYFASI ── */
 async function initDetailPage() {
-  const detailSection = document.getElementById('detail-section');
-  if (!detailSection) return;
-
-  const params = new URLSearchParams(window.location.search);
-  const id = parseInt(params.get('id'));
-
-  if (!id) {
-    detailSection.innerHTML = '<div class="detail-error"><p>Haber bulunamadı.</p><a href="haberler.html" class="btn-primary" style="display:inline-flex;margin-top:16px;">Haberlere Dön</a></div>';
-    return;
-  }
+  const section = document.getElementById('detail-section');
+  if (!section) return;
+  const id = parseInt(new URLSearchParams(window.location.search).get('id'));
+  if (!id) { section.innerHTML = '<div class="detail-error"><p>Haber bulunamadı.</p><a href="haberler.html" class="btn-primary" style="display:inline-flex;margin-top:16px">Haberlere Dön</a></div>'; return; }
 
   try {
-    const res = await fetch('data.json');
-    const data = await res.json();
+    const data = (await (await fetch('data.json')).json()).sort((a,b) => b.id - a.id);
     const item = data.find(n => n.id === id);
-
-    if (!item) {
-      detailSection.innerHTML = '<div class="detail-error"><p>Haber bulunamadı.</p><a href="haberler.html" class="btn-primary" style="display:inline-flex;margin-top:16px;">Haberlere Dön</a></div>';
-      return;
-    }
+    if (!item) { section.innerHTML = '<div class="detail-error"><p>Haber bulunamadı.</p></div>'; return; }
 
     document.title = `${item.title} — Manga Moe`;
+    const idx = data.findIndex(n => n.id === id);
+    const prev = data[idx+1] || null;
+    const next = data[idx-1] || null;
+    const related = data.filter(n => n.id !== id).slice(0, 3);
 
-    const sorted = data.sort((a, b) => b.id - a.id);
-    const currentIndex = sorted.findIndex(n => n.id === id);
-    const prevItem = sorted[currentIndex + 1] || null;
-    const nextItem = sorted[currentIndex - 1] || null;
-    const related = sorted.filter(n => n.id !== id).slice(0, 3);
-
-    detailSection.innerHTML = `
+    section.innerHTML = `
       <div class="detail-hero">
-        <div class="detail-hero-img" style="background-image: url('${item.image}')"></div>
+        <div class="detail-hero-img" style="background-image:url('${item.image}')"></div>
         <div class="detail-hero-overlay"></div>
         <div class="detail-hero-content">
           <div class="container">
@@ -343,15 +229,13 @@ async function initDetailPage() {
               <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
               <a href="haberler.html">Haberler</a>
               <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-              <span>${item.title.substring(0, 30)}...</span>
+              <span>${item.title.substring(0,30)}...</span>
             </div>
             <div class="detail-badge">✦ Haber</div>
             <h1 class="detail-title">${item.title}</h1>
             <div class="detail-meta">
               <span class="detail-date">
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                </svg>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                 ${formatDate(item.date)}
               </span>
               <span class="detail-id">ID: #${item.id}</span>
@@ -359,43 +243,22 @@ async function initDetailPage() {
           </div>
         </div>
       </div>
-
       <div class="container">
         <div class="detail-layout">
           <article class="detail-article">
-            <div class="detail-desc-box">
-              <p class="detail-desc">${item.desc}</p>
-            </div>
-            <div class="detail-content">
-              <p>${item.content}</p>
-            </div>
-
+            <div class="detail-desc-box"><p class="detail-desc">${item.desc}</p></div>
+            <div class="detail-content"><p>${item.content}</p></div>
             <div class="detail-nav">
-              ${prevItem ? `
-                <a href="haber-detay.html?id=${prevItem.id}" class="detail-nav-btn detail-nav-prev">
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                  </svg>
-                  <div>
-                    <span class="detail-nav-label">Önceki Haber</span>
-                    <span class="detail-nav-title">${prevItem.title.substring(0, 50)}${prevItem.title.length > 50 ? '...' : ''}</span>
-                  </div>
-                </a>
-              ` : '<div></div>'}
-              ${nextItem ? `
-                <a href="haber-detay.html?id=${nextItem.id}" class="detail-nav-btn detail-nav-next">
-                  <div>
-                    <span class="detail-nav-label">Sonraki Haber</span>
-                    <span class="detail-nav-title">${nextItem.title.substring(0, 50)}${nextItem.title.length > 50 ? '...' : ''}</span>
-                  </div>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                  </svg>
-                </a>
-              ` : '<div></div>'}
+              ${prev ? `<a href="haber-detay.html?id=${prev.id}" class="detail-nav-btn detail-nav-prev">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                <div><span class="detail-nav-label">Önceki Haber</span><span class="detail-nav-title">${prev.title.substring(0,50)}...</span></div>
+              </a>` : '<div></div>'}
+              ${next ? `<a href="haber-detay.html?id=${next.id}" class="detail-nav-btn detail-nav-next">
+                <div><span class="detail-nav-label">Sonraki Haber</span><span class="detail-nav-title">${next.title.substring(0,50)}...</span></div>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </a>` : '<div></div>'}
             </div>
           </article>
-
           <aside class="detail-sidebar">
             <div class="sidebar-section">
               <div class="sidebar-label">İlgili Haberler</div>
@@ -407,145 +270,92 @@ async function initDetailPage() {
                       <p class="sidebar-item-title">${r.title}</p>
                       <span class="sidebar-item-date">${formatDate(r.date)}</span>
                     </div>
-                  </a>
-                `).join('')}
+                  </a>`).join('')}
               </div>
             </div>
             <div class="sidebar-section">
               <a href="haberler.html" class="btn-all-news">
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-                </svg>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/></svg>
                 Tüm Haberleri Gör
               </a>
             </div>
           </aside>
         </div>
-      </div>
-    `;
-  } catch (err) {
-    console.error('Detail fetch error:', err);
-    detailSection.innerHTML = '<div class="detail-error"><p>Haber yüklenirken hata oluştu.</p></div>';
+      </div>`;
+  } catch(e) {
+    section.innerHTML = '<div class="detail-error"><p>Yüklenirken hata oluştu.</p></div>';
   }
 }
 
-// ── MODAL ──
+/* ── MODAL ── */
 function initModal() {
   const overlay = document.getElementById('modal-overlay');
-  const triggers = document.querySelectorAll('.modal-trigger');
-  const closeBtn = document.getElementById('modal-close');
-  const closeFooter = document.getElementById('modal-close-footer');
-
   if (!overlay) return;
-
-  function openModal() {
-    overlay.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeModal() {
-    overlay.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  triggers.forEach(btn => btn.addEventListener('click', openModal));
-  closeBtn?.addEventListener('click', closeModal);
-  closeFooter?.addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
-  });
+  const open = () => { overlay.classList.add('open'); document.body.style.overflow='hidden'; };
+  const close = () => { overlay.classList.remove('open'); document.body.style.overflow=''; };
+  document.querySelectorAll('.modal-trigger').forEach(b => b.addEventListener('click', open));
+  document.getElementById('modal-close')?.addEventListener('click', close);
+  document.getElementById('modal-close-footer')?.addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target===overlay) close(); });
+  document.addEventListener('keydown', e => { if(e.key==='Escape') close(); });
 }
 
-// ── DRAWER ──
+/* ── DRAWER ── */
 function initDrawer() {
-  const hamburger = document.getElementById('hamburger');
+  const ham = document.getElementById('hamburger');
   const drawer = document.getElementById('drawer');
   const overlay = document.getElementById('drawer-overlay');
   const closeBtn = document.getElementById('drawer-close');
+  if (!ham || !drawer) return;
+  const open = () => { drawer.classList.add('open'); overlay?.classList.add('open'); ham.classList.add('active'); document.body.style.overflow='hidden'; };
+  const close = () => { drawer.classList.remove('open'); overlay?.classList.remove('open'); ham.classList.remove('active'); document.body.style.overflow=''; };
+  ham.addEventListener('click', open);
+  overlay?.addEventListener('click', close);
+  closeBtn?.addEventListener('click', close);
+  document.addEventListener('keydown', e => { if(e.key==='Escape') close(); });
+}
 
-  if (!hamburger || !drawer) return;
-
-  function openDrawer() {
-    drawer.classList.add('open');
-    overlay?.classList.add('open');
-    hamburger.classList.add('active');
-    document.body.style.overflow = 'hidden';
-  }
-  function closeDrawer() {
-    drawer.classList.remove('open');
-    overlay?.classList.remove('open');
-    hamburger.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-
-  hamburger.addEventListener('click', openDrawer);
-  overlay?.addEventListener('click', closeDrawer);
-  closeBtn?.addEventListener('click', closeDrawer);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeDrawer();
+/* ── MOBİL ARAMA ── */
+function initMobileSearch() {
+  const btn = document.getElementById('nav-search-btn');
+  const panel = document.getElementById('nav-search-mobile');
+  if (!btn || !panel) return;
+  btn.addEventListener('click', () => {
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) panel.querySelector('input')?.focus();
   });
 }
 
-// ── SEARCH ──
-function initSearch() {
-  const searchInput = document.querySelector('.nav-search input, .page-search input');
-  if (!searchInput) return;
-
-  searchInput.addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase().trim();
-    if (!STATE.news.length) return;
-
-    const filtered = q
-      ? STATE.news.filter(n =>
-          n.title.toLowerCase().includes(q) ||
-          n.desc.toLowerCase().includes(q) ||
-          n.content.toLowerCase().includes(q)
-        )
-      : STATE.news;
-
-    STATE.currentPage = 1;
-    renderNews(filtered, 1);
-  });
-}
-
-// ── VIEWPORT HEIGHT FIX (iOS Safari) ──
-function setVh() {
-  const vh = window.innerHeight * 0.01;
-  document.documentElement.style.setProperty('--vh', `${vh}px`);
-}
-
-// ── INIT ──
+/* ── INIT ── */
 document.addEventListener('DOMContentLoaded', async () => {
-  // iOS Safari viewport yüksekliği düzeltmesi
-  setVh();
-  window.addEventListener('resize', setVh);
-  // Orientation change için ekstra gecikme
-  window.addEventListener('orientationchange', () => {
-    setTimeout(setVh, 300);
-  });
-
   initModal();
   initDrawer();
-  initSliderButtons();
+  initMobileSearch();
+  initMobileSearch();
 
-  const isNewsPage   = !!document.getElementById('news-grid');
-  const isHomePage   = !!document.getElementById('hero-slider');
-  const isDetailPage = !!document.getElementById('detail-section');
+  const isNews = !!document.getElementById('news-grid');
+  const isHome = !!document.getElementById('hero-slider');
+  const isDetail = !!document.getElementById('detail-section');
 
-  if (isDetailPage) {
-    await initDetailPage();
-    return;
-  }
-
-  if (isNewsPage) showSkeleton();
+  if (isDetail) { await initDetailPage(); return; }
+  if (isNews) showSkeleton();
 
   const news = await fetchNews();
-
-  if (isHomePage) initSlider(news);
-  if (isNewsPage) {
-    renderNews(news, 1);
-    initSearch();
-  }
+  if (isHome) initSlider(news);
+  if (isNews) renderNews(news, 1);
 });
+
+// ── MOBİL ARAMA BUTONU ──
+function initMobileSearch() {
+  const btn = document.getElementById('nav-search-btn');
+  const panel = document.getElementById('nav-search-mobile');
+  const input = document.getElementById('mobile-search-input');
+  if (!btn || !panel) return;
+
+  btn.addEventListener('click', () => {
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+      input?.focus();
+    }
+  });
+}
